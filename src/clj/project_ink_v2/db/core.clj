@@ -170,10 +170,7 @@
                 :where
                 [?t :tattoo/uuid _]]
                   @conn)]
-     (println res)
      res)))
-(print conn)
-(get-tattoos)
 
 ;; Sketces
 
