@@ -28,7 +28,6 @@
   (let [db-conn (-> req :system :db-conn)
         date    (-> req :params :tattoo/date time/java-date)
         result  (db/insert-tattoo db-conn (merge (:params req) {:tattoo/date date}))]
-    (pprint result)
     (response/ok result)))
 
 (defn patch-tattoo-handler [req]
@@ -37,6 +36,12 @@
         values      (m/decode data/Tattoo (:params req) (mt/string-transformer))
         result      (db/update-tattoo db-conn (merge values {:tattoo/uuid tattoo-uuid}))]
     (response/ok result)))
+
+(defn get-tattoos-handler [req]
+  (let [db-conn (-> req :system :db-conn)
+        result (db/get-tattoos db-conn)]
+    (response/ok result)))
+
 
 (defn wrap-system [handler]
   (fn [req]
@@ -57,30 +62,29 @@
    ["/" {:get home-page}]
    ["/api/v1" {:coercion reitit.coercion.malli/coercion}
     ["/debug" {:coercion reitit.coercion.malli/coercion
-               :post {:parameters {:body-params [:map [:tattoo/style [:and [:enum :foo] keyword?]]]}
-                      :handler (fn [rq]
-                                 (pprint (m/decode [:map [:tattoo/style [:and [:enum :foo] keyword?]]]
-                                                  (:body-params rq)
-                                                  (mt/string-transformer)))
-                                 (pprint (:params rq))
-                                 (pprint rq)
-                                 (response/ok (:body-params rq)))}
-               :patch {:handler (fn [rq] (response/ok (:body-params rq)))}
-               }
-     ]
+               :post     {:parameters {:body-params [:map [:tattoo/style [:and [:enum :foo] keyword?]]]}
+                          :handler    (fn [rq]
+                                     (pprint (m/decode [:map [:tattoo/style [:and [:enum :foo] keyword?]]]
+                                                       (:body-params rq)
+                                                       (mt/string-transformer)))
+                                     (pprint (:params rq))
+                                     (pprint rq)
+                                     (response/ok (:body-params rq)))}
+               :patch    {:handler (fn [rq] (response/ok (:body-params rq)))}}]
     ["/tattoos"
-     ["/" {:coercion reitit.coercion.malli/coercion
-           :parameters {:body data/Tattoo}
-           :post       post-tattoo-handler}]
-     ["/:tattoo-uuid" {:coercion reitit.coercion.malli/coercion
+     ["/" {:post {:coercion   reitit.coercion.malli/coercion
+                  :parameters {:body data/Tattoo}
+                  :handler    post-tattoo-handler}
+           :get  get-tattoos-handler}]
+     ["/:tattoo-uuid" {:coercion   reitit.coercion.malli/coercion
                        :parameters {:path [:map [:tattoo-uuid uuid?]]}
                        :responses  {200 {:body [:map
                                                 [:db/id number?]
                                                 [:tattoo/uuid uuid?]
                                                 [:tattoo/title string?]]}}
                        :get        get-tattoo-by-uuid-handler
-                       :patch     {:parameters {:body-params data/Tattoo}
-                                   :handler    patch-tattoo-handler}}]]]
+                       :patch      {:parameters {:body-params data/Tattoo}
+                                    :handler    patch-tattoo-handler}}]]]
    ["/docs" {:get (fn [_]
                     (-> (response/ok (-> "docs/docs.md" io/resource slurp))
                         (response/header "Content-Type" "text/plain; charset=utf-8")))}]])

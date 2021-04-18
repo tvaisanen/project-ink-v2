@@ -6,22 +6,20 @@
    [datahike.migrate :refer [export-db]]
    [clojure.tools.logging :as log]
    [project-ink-v2.config :refer [env]]
-   [mount.core :refer [defstate]]
+   [mount.core :refer [defstate] :as mount]
    [java-time :as time]))
-
-#_(def pg-store
-    {:backend :pg
-     :host "localhost"
-     :port "5432"
-     :username "user"
-     :password "password"
-     :path "/project_ink_v2_dev"})
-
-;; DATAHIKE
-
 
 (def cfg
   {:store {:backend :file :path "db/project_ink_v2_dev"}})
+
+; (d/create-database cfg)
+; (d/transact conn schema)
+
+(defstate conn
+  :start  (d/connect cfg)
+  :stop (d/release conn))
+
+;; => #atom[#datahike/DB {:max-tx 536870913 :max-eid 39} 0x127f39ed]
 
 (def schema
   ;; enums
@@ -118,61 +116,73 @@
     :db/valueType :db.type/number
     :db/cardinality :db.cardinality/one}])
 
-(def conn (d/connect cfg))
+; (def conn (d/connect cfg))
 
 (comment
   (d/release conn)
   (d/delete-database cfg)
   (d/create-database cfg :initial-tx schema)
-  (d/transact conn schema))
-
-(export-db @conn "./db/dump")
+  (d/transact conn schema)
+  (export-db @conn "./db/dump"))
 
 (def pull-pattern-tattoo '[* {:tattoo/size [*] :tattoo/location [*]}])
 
-(comment
-  (let [t-uuid
-        (java.util.UUID/randomUUID)]
-    (d/transact conn [#:tattoo{:uuid        t-uuid
-                               :title       "test"
-                               :size        :tattoo-size/small
-                               :location    :tattoo-location/hand
-                               :date        (java.util.Date.)
-                               :description "textual description."}
-                      #:bill{:tattoo -1
-                             :amount 30}])))
+
+;; Database queries
+
 
 (defn insert-tattoo
   "Insert new tattoo. Generate new UUID and return inserted values."
-  [conn tattoo]
-  (let [tattoo-uuid      (java.util.UUID/randomUUID)
-        tattoo-with-uuid (merge tattoo {:tattoo/uuid tattoo-uuid})
-        tx-result        (d/transact conn [tattoo-with-uuid])]
-    (d/pull (:db-after tx-result) '[*] [:tattoo/uuid tattoo-uuid])))
+  ([tattoo] (insert-tattoo conn tattoo))
+  ([conn tattoo]
+   (let [tattoo-uuid      (java.util.UUID/randomUUID)
+         tattoo-with-uuid (merge tattoo {:tattoo/uuid tattoo-uuid})
+         tx-result        (d/transact conn [tattoo-with-uuid])]
+     (d/pull (:db-after tx-result) '[*] [:tattoo/uuid tattoo-uuid]))))
 
 (defn update-tattoo
   "Update existing tattoo and return inserted values."
-  [conn tattoo]
-  (let [tx-result        (d/transact conn [tattoo])]
-    (d/pull (:db-after tx-result)
-            pull-pattern-tattoo
-            [:tattoo/uuid (:tattoo/uuid tattoo)])))
+  ([tattoo] (update-tattoo conn tattoo))
+  ([conn tattoo]
+   (let [tx-result        (d/transact conn [tattoo])]
+     (d/pull (:db-after tx-result)
+             pull-pattern-tattoo
+             [:tattoo/uuid (:tattoo/uuid tattoo)]))))
 
 (defn get-tattoo-by-uuid
   "Get tattoo by uuid."
-  [conn uuid]
-  (d/q '[:find (pull ?tattoo [*]) .
-         :in $ ?uuid
-         :where
-         [?tattoo :tattoo/uuid ?uuid]]
-       @conn
-       uuid))
+  ([uuid] (get-tattoo-by-uuid conn uuid))
+  ([conn uuid]
+   (d/q '[:find (pull ?tattoo [*]) .
+          :in $ ?uuid
+          :where
+          [?tattoo :tattoo/uuid ?uuid]]
+        @conn
+        uuid)))
+
+(defn get-tattoos
+  "Get list of tattoos."
+  ([] (get-tattoos conn))
+  ([conn]
+   (println conn)
+   (let [res (d/q '[:find [(pull ?t [*]) ...]
+                :in $
+                :where
+                [?t :tattoo/uuid _]]
+                  @conn)]
+     (println res)
+     res)))
+(print conn)
+(get-tattoos)
+
+;; Sketces
+
 
 (comment
   (def t-uuid
     (java.util.UUID/fromString "fc0a2768-c8de-425d-a7c3-16b79c720cf6"))
 
-  (def temp-uuid (java.util.UUID/fromString"67a33ff2-8f75-4091-9956-0ed5180e3beb"))
+  (def temp-uuid (java.util.UUID/fromString "67a33ff2-8f75-4091-9956-0ed5180e3beb"))
   (update-tattoo conn
                  {:tattoo/uuid temp-uuid
                   :tattoo/size :tattoo-size/large
@@ -181,6 +191,15 @@
 
   ;; datahike instants need to be java.util.Date
 
+
+  (let [t-uuid
+        (java.util.UUID/randomUUID)]
+    (d/transact conn [#:tattoo{:uuid        t-uuid
+                               :title       "test-2"
+                               :size        :tattoo.size/small
+                               :location    :tattoo.location/hand
+                               :date        (java.util.Date.)
+                               :description "textual description."}]))
 
   (time/instant? (java.util.Date.))
   (time/instant? (time/instant))
