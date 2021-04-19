@@ -164,13 +164,12 @@
   "Get list of tattoos."
   ([] (get-tattoos conn))
   ([conn]
-   (println conn)
-   (let [res (d/q '[:find [(pull ?t [*]) ...]
-                :in $
-                :where
-                [?t :tattoo/uuid _]]
-                  @conn)]
-     res)))
+   (d/q '[:find [(pull ?t [*]) ...]
+          :in $
+          :where
+          [?t :tattoo/uuid _]]
+          @conn)))
+
 
 ;; Sketces
 

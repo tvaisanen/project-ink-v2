@@ -13,7 +13,8 @@
    [java-time :as time]
    [malli.core :as m]
    [malli.transform :as mt]
-   [project-ink-v2.data :as data]))
+   [project-ink-v2.data :as data]
+   [clojure.string :as string]))
 
 (defn home-page [request]
   (layout/render request "home.html"))
@@ -42,13 +43,45 @@
         result (db/get-tattoos db-conn)]
     (response/ok result)))
 
-
 (defn wrap-system [handler]
   (fn [req]
     (try
-      (handler (assoc req :system {:db-conn db/conn}))
+      (handler (assoc req :system {:db-conn db/conn
+                                   :uploads-path "./uploads"}))
       (catch Throwable t
         (log/error t (.getMessage t))))))
+
+(defn file-ext-from-mimetype [mimetype]
+  (-> mimetype
+      (string/split #"/")
+      last))
+
+(defn upload-file
+  "
+  Save uploaded file.
+  Chain with request handler.
+  Does not return a response.
+  "
+  [req]
+  (try
+    (if (nil? (-> req :params :image :tempfile))
+      (assoc-in req [:params :image] "no image")
+      (let [uploads   (-> req :system :uploads-path)
+            file      (-> req :params :image :tempfile)
+            mimetype  (-> req :params :image :content-type)
+            ext       (-> mimetype  file-ext-from-mimetype)
+            filename  (str uploads "/" (java.util.UUID/randomUUID) "." ext)
+            f         (io/file filename)]
+        (io/copy file f)
+        (.createNewFile f)
+        (assoc-in req [:params :image] filename)))
+    (catch Throwable t
+      (.getMessage t)
+      req)))
+
+(defn debug-req [req]
+  (pprint req)
+  (response/ok {:uploaded (:params req)}))
 
 (defn home-routes []
   [""
@@ -60,22 +93,27 @@
                  rrc/coerce-request-middleware
                  rrc/coerce-response-middleware]}
    ["/" {:get home-page}]
+   ["/upload" {:coercion reitit.coercion.malli/coercion
+               :post     {:multipart-params
+                          {:body-params
+                           [:map
+                            [:image
+                             [:map
+                              [:content-type string?]
+                              [:filename string?]
+                              [:size number?]
+                              [:tempfile string?]]]]}
+                          :handler (comp debug-req upload-file)}}]
    ["/api/v1" {:coercion reitit.coercion.malli/coercion}
-    ["/debug" {:coercion reitit.coercion.malli/coercion
-               :post     {:parameters {:body-params [:map [:tattoo/style [:and [:enum :foo] keyword?]]]}
-                          :handler    (fn [rq]
-                                     (pprint (m/decode [:map [:tattoo/style [:and [:enum :foo] keyword?]]]
-                                                       (:body-params rq)
-                                                       (mt/string-transformer)))
-                                     (pprint (:params rq))
-                                     (pprint rq)
-                                     (response/ok (:body-params rq)))}
-               :patch    {:handler (fn [rq] (response/ok (:body-params rq)))}}]
+
     ["/tattoos"
-     ["/" {:post {:coercion   reitit.coercion.malli/coercion
-                  :parameters {:body data/Tattoo}
-                  :handler    post-tattoo-handler}
-           :get  get-tattoos-handler}]
+     ["" {:post {:coercion   reitit.coercion.malli/coercion
+                 :handler    (comp
+                              post-tattoo-handler
+                              upload-file)
+                 :parameters {:body data/Tattoo}}
+          :get  get-tattoos-handler}]
+
      ["/:tattoo-uuid" {:coercion   reitit.coercion.malli/coercion
                        :parameters {:path [:map [:tattoo-uuid uuid?]]}
                        :responses  {200 {:body [:map
@@ -84,7 +122,19 @@
                                                 [:tattoo/title string?]]}}
                        :get        get-tattoo-by-uuid-handler
                        :patch      {:parameters {:body-params data/Tattoo}
-                                    :handler    patch-tattoo-handler}}]]]
-   ["/docs" {:get (fn [_]
-                    (-> (response/ok (-> "docs/docs.md" io/resource slurp))
-                        (response/header "Content-Type" "text/plain; charset=utf-8")))}]])
+                                    :handler    patch-tattoo-handler}}]]]])
+
+(comment
+  ["/debug" {:coercion reitit.coercion.malli/coercion
+             :post     {:parameters {:body-params [:map [:tattoo/style [:and [:enum :foo] keyword?]]]}
+                        :handler    (fn [rq]
+                                      (pprint (m/decode [:map [:tattoo/style [:and [:enum :foo] keyword?]]]
+                                                        (:body-params rq)
+                                                        (mt/string-transformer)))
+                                      (pprint (:params rq))
+                                      (pprint rq)
+                                      (response/ok (:body-params rq)))}
+             :patch    {:handler (fn [rq] (response/ok (:body-params rq)))}}]
+  ["/docs" {:get (fn [_]
+                   (-> (response/ok (-> "docs/docs.md" io/resource slurp))
+                       (response/header "Content-Type" "text/plain; charset=utf-8")))}])
