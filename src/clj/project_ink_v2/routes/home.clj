@@ -14,6 +14,7 @@
    [malli.core :as m]
    [malli.transform :as mt]
    [project-ink-v2.data :as data]
+   [project-ink-v2.images :as img]
    [clojure.string :as string]))
 
 (defn home-page [request]
@@ -74,13 +75,13 @@
             f         (io/file filename)]
         (io/copy file f)
         (.createNewFile f)
+        (img/>img-to-resize! (merge {:filename filename} file))
         (assoc-in req [:params :image] filename)))
     (catch Throwable t
       (.getMessage t)
       req)))
 
 (defn debug-req [req]
-  (pprint req)
   (response/ok {:uploaded (:params req)}))
 
 (defn home-routes []
