@@ -2,7 +2,7 @@
   (:require
    [cheshire.core :refer [generate-string parse-string]]
    [datahike.api :as d]
-   [datahike-postgres.core]
+   ;; [datahike-postgres.core]
    [datahike.migrate :refer [export-db]]
    [clojure.tools.logging :as log]
    [project-ink-v2.config :refer [env]]

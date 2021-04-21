@@ -34,6 +34,7 @@
                  [org.webjars.npm/material-icons "0.3.1"]
                  [org.webjars/webjars-locator "0.40"]
                  [re-frame "1.2.0"]
+                 [io.replikativ/datahike-postgres "0.1.0"]
                  [reagent "1.0.0"]
                  [ring-webjars "0.2.0"]
                  [ring/ring-core "1.9.1"]
@@ -42,8 +43,8 @@
                  [thheller/shadow-cljs "2.11.22" :scope "provided"]
                  [org.clojure/java.jdbc "0.3.6"]
                  [io.replikativ/datahike "0.3.2"]
-                 [io.replikativ/datahike-postgres "0.1.0"]
-                 [com.walmartlabs/lacinia "0.39-alpha-5"]]
+                 ;; [io.replikativ/datahike-postgres "0.1.0"]
+                 [net.mikera/imagez "0.12.0"]]
 
   :min-lein-version "2.0.0"
 

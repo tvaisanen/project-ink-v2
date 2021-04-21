@@ -57,6 +57,9 @@
       (string/split #"/")
       last))
 
+(comment
+  (img/>img-to-resize! {:tempfile (io/resource "img/test-img.jpg")}))
+
 (defn upload-file
   "
   Save uploaded file.
@@ -75,7 +78,7 @@
             f         (io/file filename)]
         (io/copy file f)
         (.createNewFile f)
-        (img/>img-to-resize! (merge {:filename filename} file))
+        (img/>img-to-resize! {:tempfile file :filename filename})
         (assoc-in req [:params :image] filename)))
     (catch Throwable t
       (.getMessage t)
