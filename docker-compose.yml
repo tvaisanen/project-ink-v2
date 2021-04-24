@@ -20,7 +20,7 @@ services:
   project-ink:
     #image: project-ink-v2:dev
     build:
-      - context: ./
+      context: ./
     ports:
       - 3000:3000
     volumes:
