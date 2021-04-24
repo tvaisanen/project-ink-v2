@@ -18,7 +18,9 @@ services:
   #   volumes:
   #     - ./localstack/data:/tmp/localstack/
   project-ink:
-    image: project-ink-v2:dev
+    #image: project-ink-v2:dev
+    build:
+      - context: ./
     ports:
       - 3000:3000
     volumes:
