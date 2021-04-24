@@ -17,14 +17,22 @@ services:
   #     - DATA_DIR=/tmp/localstack/data
   #   volumes:
   #     - ./localstack/data:/tmp/localstack/
-  postgres:
-    image: postgres
+  project-ink:
+    image: project-ink-v2:dev
     ports:
-      - 5432:5432
+      - 3000:3000
+    volumes:
+      - datahike:/project-ink-v2/db
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DATABASE=development
+      - DATABASE_URL=postgres
+  #postgres:
+  #  image: postgres
+  #  ports:
+  #    - 5432:5432
+  #  environment:
+  #    - POSTGRES_USER=user
+  #    - POSTGRES_PASSWORD=password
+  #    - POSTGRES_DATABASE=development
   # redis:
   #   image: redis:alpine
   #   ports:
@@ -38,3 +46,4 @@ services:
 
 volumes:
   redis-data:
+  datahike:

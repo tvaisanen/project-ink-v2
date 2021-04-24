@@ -9,16 +9,6 @@
    [mount.core :refer [defstate] :as mount]
    [java-time :as time]))
 
-(def cfg
-  {:store {:backend :file :path "db/project_ink_v2_dev"}})
-
-; (d/create-database cfg)
-; (d/transact conn schema)
-
-(defstate conn
-  :start  (d/connect cfg)
-  :stop (d/release conn))
-
 ;; => #atom[#datahike/DB {:max-tx 536870913 :max-eid 39} 0x127f39ed]
 
 (def schema
@@ -116,7 +106,20 @@
     :db/valueType :db.type/number
     :db/cardinality :db.cardinality/one}])
 
-; (def conn (d/connect cfg))
+(def cfg
+  {:store {:backend :file :path "db/project_ink_v2_dev"}})
+
+(defstate conn
+  :start  (fn []
+            (try
+              (println "Create a database...")
+              (d/create-database cfg :initial-tx schema)
+              (catch Throwable t
+                (println (.getMessage t))))
+            (d/connect cfg))
+  :stop (d/release conn))
+
+
 
 (comment
   (d/release conn)
